@@ -377,3 +377,41 @@ textarea {
         padding: 10px;
     }
 }
+
+/* ===============================
+   Mobile Chat Fix (CRITICAL)
+   =============================== */
+
+@media (max-width: 768px) {
+    body {
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    #chat-box {
+        height: calc(100vh - 120px);
+        /* Adjusted for nav and typing indicator */
+        overflow-y: auto;
+        padding-bottom: 20px;
+    }
+
+    .input-area {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: #fff;
+        padding: 10px;
+        border-top: 1px solid #ddd;
+        z-index: 999;
+    }
+
+    #msg-input {
+        font-size: 16px;
+        /* prevents zoom on iOS */
+    }
+
+    #send-btn {
+        font-size: 16px;
+    }
+}
