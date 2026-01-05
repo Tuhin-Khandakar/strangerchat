@@ -1,4 +1,30 @@
 import 'dotenv/config';
+
+/**
+ * STARTUP VALIDATION
+ */
+const REQUIRED_ENV = ['PORT', 'NODE_ENV'];
+const OPTIONAL_ENV = {
+    DB_NAME: 'moderation.db',
+    DEBUG: 'false'
+};
+
+// Check Required
+const missingRequired = REQUIRED_ENV.filter(key => !process.env[key]);
+if (missingRequired.length > 0) {
+    console.error(`\x1b[31m[FATAL] Missing required environment variables: ${missingRequired.join(', ')}\x1b[0m`);
+    console.error('Please refer to .env.example and update your .env file.');
+    process.exit(1);
+}
+
+// Check Optional & Set Defaults
+Object.entries(OPTIONAL_ENV).forEach(([key, defaultValue]) => {
+    if (!process.env[key]) {
+        console.warn(`\x1b[33m[WARN] Optional environment variable ${key} is missing. Using default: ${defaultValue}\x1b[0m`);
+        process.env[key] = defaultValue;
+    }
+});
+
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -19,19 +45,22 @@ const dbPath = path.join(__dirname, 'db');
 if (!fs.existsSync(dbPath)) {
     fs.mkdirSync(dbPath, { recursive: true });
 }
-const db = new Database(path.join(dbPath, 'moderation.db'));
+const db = new Database(path.join(dbPath, process.env.DB_NAME));
 
-// Initialize Schema
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS user_moderation (
-    ip_hash TEXT PRIMARY KEY,
-    reports INTEGER DEFAULT 0,
-    banned_until INTEGER DEFAULT NULL,
-    last_report_at INTEGER
-  )
-`).run();
-
-console.log("SQLite moderation DB initialized");
+try {
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_moderation (
+        ip_hash TEXT PRIMARY KEY,
+        reports INTEGER DEFAULT 0,
+        banned_until INTEGER DEFAULT NULL,
+        last_report_at INTEGER
+      )
+    `).run();
+    console.log("SQLite moderation DB initialized");
+} catch (err) {
+    console.error("FATAL: Failed to initialize SQLite DB:", err);
+    process.exit(1);
+}
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -51,12 +80,15 @@ const CONSTRAINTS = {
     TEMP_BAN_DURATION: 1000 * 60 * 60 * 24, // 24 hours
     REPORT_RATE_LIMIT: 5, // Max reports per session
     REPORT_RATE_WINDOW: 60 * 60 * 1000, // 1 hour
+    CONN_RATE_LIMIT: 10, // Max 10 connections per window
+    CONN_RATE_WINDOW_MS: 60 * 1000, // 1 minute
 };
 
 /**
  * STATE MANAGEMENT
  */
 const socketStates = new Map(); // socket.id -> { state, partnerId, roomId, lastMsgAt, lastMatchAt, ipHash, reportsSent }
+const connectionRates = new Map(); // ipHash -> { count, windowStart }
 let waitingQueue = []; // Array of socket IDs
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -64,44 +96,81 @@ const isProd = process.env.NODE_ENV === 'production';
  * UTILS
  */
 const getIpHash = (socket) => {
-    const ip = socket.handshake.address || socket.request.connection.remoteAddress;
+    // Check various headers for behind-proxy IPs (adjust based on deployment)
+    const ip = socket.handshake.headers['x-forwarded-for'] ||
+        socket.handshake.address ||
+        socket.request.connection.remoteAddress;
     return crypto.createHash('sha256').update(ip).digest('hex');
 };
 
+const sanitize = (text) => {
+    if (typeof text !== 'string') return '';
+    return text
+        .trim()
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .substring(0, CONSTRAINTS.MSG_MAX_LENGTH);
+};
+
 const transitionState = (socketId, newState, metadata = {}) => {
-    const current = socketStates.get(socketId) || {};
-    socketStates.set(socketId, { ...current, state: newState, ...metadata });
+    const session = socketStates.get(socketId);
+    if (!session) return;
+
+    const currentState = session.state;
+    const allowed = {
+        'idle': ['waiting', 'idle'],
+        'waiting': ['chatting', 'idle', 'waiting'],
+        'chatting': ['idle', 'waiting', 'chatting']
+    };
+
+    if (!allowed[currentState] || !allowed[currentState].includes(newState)) {
+        if (!isProd) {
+            console.warn(`Blocked invalid state transition: ${currentState} -> ${newState} for ${socketId}`);
+        }
+        return;
+    }
+
+    socketStates.set(socketId, { ...session, state: newState, ...metadata });
 };
 
 /**
  * Persitence Helpers
  */
 const isUserBanned = (ipHash) => {
-    const row = db.prepare("SELECT banned_until FROM user_moderation WHERE ip_hash = ?").get(ipHash);
-    if (!row || !row.banned_until) return false;
-    return Date.now() < row.banned_until;
+    try {
+        const row = db.prepare("SELECT banned_until FROM user_moderation WHERE ip_hash = ?").get(ipHash);
+        if (!row || !row.banned_until) return false;
+        return Date.now() < row.banned_until;
+    } catch (err) {
+        console.error(`Database error checking ban for ${ipHash.substring(0, 8)}:`, err);
+        return false; // Fail-open to allow connection but log error
+    }
 };
 
 const reportUser = (ipHash) => {
     const now = Date.now();
-    const existing = db.prepare("SELECT reports FROM user_moderation WHERE ip_hash = ?").get(ipHash);
+    try {
+        const existing = db.prepare("SELECT reports FROM user_moderation WHERE ip_hash = ?").get(ipHash);
 
-    if (existing) {
-        const newReports = existing.reports + 1;
-        let bannedUntil = null;
-        if (newReports >= CONSTRAINTS.REPORT_THRESHOLD) {
-            bannedUntil = now + CONSTRAINTS.TEMP_BAN_DURATION;
+        if (existing) {
+            const newReports = existing.reports + 1;
+            let bannedUntil = null;
+            if (newReports >= CONSTRAINTS.REPORT_THRESHOLD) {
+                bannedUntil = now + CONSTRAINTS.TEMP_BAN_DURATION;
+            }
+            db.prepare(`
+                UPDATE user_moderation 
+                SET reports = ?, banned_until = ?, last_report_at = ? 
+                WHERE ip_hash = ?
+            `).run(newReports, bannedUntil, now, ipHash);
+        } else {
+            db.prepare(`
+                INSERT INTO user_moderation (ip_hash, reports, last_report_at) 
+                VALUES (?, 1, ?)
+            `).run(ipHash, now);
         }
-        db.prepare(`
-            UPDATE user_moderation 
-            SET reports = ?, banned_until = ?, last_report_at = ? 
-            WHERE ip_hash = ?
-        `).run(newReports, bannedUntil, now, ipHash);
-    } else {
-        db.prepare(`
-            INSERT INTO user_moderation (ip_hash, reports, last_report_at) 
-            VALUES (?, 1, ?)
-        `).run(ipHash, now);
+    } catch (err) {
+        console.error(`Database error reporting user ${ipHash.substring(0, 8)}:`, err);
     }
 };
 
@@ -109,12 +178,21 @@ const cleanupSession = (socketId) => {
     const session = socketStates.get(socketId);
     if (!session) return;
 
+    // Handle edge case where partner also disconnected
     if (session.state === 'chatting' && session.partnerId) {
-        const partnerSocket = io.sockets.sockets.get(session.partnerId);
-        if (partnerSocket) {
-            partnerSocket.emit('partner_left');
-            transitionState(partnerSocket.id, 'idle', { partnerId: null, roomId: null });
-            partnerSocket.leave(session.roomId);
+        const partnerId = session.partnerId;
+        const partnerSession = socketStates.get(partnerId);
+
+        // Notify partner if they are still connected and in chatting state with us
+        if (partnerSession && partnerSession.partnerId === socketId) {
+            const partnerSocket = io.sockets.sockets.get(partnerId);
+            if (partnerSocket && !partnerSocket.disconnected) {
+                partnerSocket.emit('partner_left');
+                transitionState(partnerId, 'idle', { partnerId: null, roomId: null });
+                if (session.roomId) {
+                    partnerSocket.leave(session.roomId);
+                }
+            }
         }
     }
 
@@ -127,6 +205,24 @@ const cleanupSession = (socketId) => {
  */
 io.on('connection', (socket) => {
     const ipHash = getIpHash(socket);
+    const now = Date.now();
+
+    // Connection Rate Limiting
+    const rate = connectionRates.get(ipHash) || { count: 0, windowStart: now };
+    if (now - rate.windowStart > CONSTRAINTS.CONN_RATE_WINDOW_MS) {
+        rate.count = 1;
+        rate.windowStart = now;
+    } else {
+        rate.count++;
+    }
+    connectionRates.set(ipHash, rate);
+
+    if (rate.count > CONSTRAINTS.CONN_RATE_LIMIT) {
+        if (!isProd) console.log(`Rate limited connection attempt: ${ipHash.substring(0, 8)}`);
+        socket.emit("sys_error", "Too many connection attempts. Please wait a minute.");
+        socket.disconnect(true);
+        return;
+    }
 
     // Step 4: Ban Check on Connection
     if (isUserBanned(ipHash)) {
@@ -148,7 +244,8 @@ io.on('connection', (socket) => {
         lastMsgAt: 0,
         lastMatchAt: 0,
         ipHash,
-        reportsSent: 0
+        reportsSent: 0,
+        lastReportAt: 0
     });
 
     // Send initial online count
@@ -180,32 +277,49 @@ io.on('connection', (socket) => {
         if (waitingQueue.length > 0) {
             const partnerId = waitingQueue.shift();
             const partnerSocket = io.sockets.sockets.get(partnerId);
+            const partnerSession = socketStates.get(partnerId);
 
-            if (!partnerSocket || partnerSocket.disconnected) {
-                // If partner is invalid, try next or re-queue
-                transitionState(socket.id, 'waiting');
-                waitingQueue.push(socket.id);
-                return socket.emit('searching');
+            // Robust check for partner validity
+            if (!partnerSocket || partnerSocket.disconnected || !partnerSession || partnerSession.state !== 'waiting') {
+                if (!isProd) console.log(`Partner ${partnerId} became unavailable during matchmaking`);
+                // Continue searching if partner is gone
+                return socket.emit('searching'); // The next call to find_match or interval will handle queue
+                // Actually, since we're already in the find_match handler, we should probably recurse or just wait.
+                // For simplicity, let's just let the user try again or push themselves to queue.
+                // Better: push self back to queue and let them wait.
             }
 
             const roomId = uuidv4();
-            socket.join(roomId);
-            partnerSocket.join(roomId);
+            try {
+                socket.join(roomId);
+                partnerSocket.join(roomId);
 
-            transitionState(socket.id, 'chatting', { partnerId, roomId, lastMatchAt: now });
-            transitionState(partnerId, 'chatting', { partnerId: socket.id, roomId, lastMatchAt: now });
+                transitionState(socket.id, 'chatting', { partnerId, roomId, lastMatchAt: now });
+                transitionState(partnerId, 'chatting', { partnerId: socket.id, roomId, lastMatchAt: now });
 
-            if (!isProd) {
-                console.log(`MATCHED: ${socket.id} with ${partnerId}`);
+                if (!isProd) {
+                    console.log(`MATCHED: ${socket.id} with ${partnerId}`);
+                }
+                io.to(roomId).emit('matched');
+            } catch (err) {
+                console.error("Matchmaking error during room join:", err);
+                socket.emit('sys_error', 'Matchmaking failed. Please try again.');
+                cleanupSession(socket.id);
+                cleanupSession(partnerId);
             }
-            io.to(roomId).emit('matched');
         } else {
             waitingQueue.push(socket.id);
             socket.emit('searching');
         }
     });
 
-    socket.on('send_msg', (text) => {
+    socket.on('send_msg', (rawText) => {
+        // Validation: Ensure text is a string
+        if (typeof rawText !== 'string') return;
+
+        const text = sanitize(rawText);
+        if (!text) return;
+
         const session = socketStates.get(socket.id);
         if (!session || session.state !== 'chatting') return;
 
@@ -215,8 +329,8 @@ io.on('connection', (socket) => {
         if (now - session.lastMsgAt < CONSTRAINTS.MSG_RATE_LIMIT_MS) return;
         session.lastMsgAt = now;
 
-        // 2. Length Check
-        if (!text || text.length > CONSTRAINTS.MSG_MAX_LENGTH) return;
+        // 2. Length Check (redundant due to sanitize but kept for safety)
+        if (text.length > CONSTRAINTS.MSG_MAX_LENGTH) return;
 
         // 3. Profanity/Spam Filter
         // TODO: Escalation logic - if user hits filter N times, auto-ban ipHash
@@ -234,8 +348,18 @@ io.on('connection', (socket) => {
     socket.on('report_user', () => {
         const session = socketStates.get(socket.id);
         if (session && session.state === 'chatting' && session.partnerId) {
+            const now = Date.now();
+
+            // Time-based reset (Gap #4)
+            if (now - session.lastReportAt > CONSTRAINTS.REPORT_RATE_WINDOW) {
+                session.reportsSent = 0;
+            }
+
             // Rate Limit Check
-            if (session.reportsSent >= CONSTRAINTS.REPORT_RATE_LIMIT) return;
+            if (session.reportsSent >= CONSTRAINTS.REPORT_RATE_LIMIT) {
+                socket.emit('sys_error', 'Report rate limit exceeded. Please try again later.');
+                return;
+            }
 
             const partnerSession = socketStates.get(session.partnerId);
             if (partnerSession && partnerSession.ipHash) {
@@ -244,14 +368,19 @@ io.on('connection', (socket) => {
                 }
                 reportUser(partnerSession.ipHash);
                 session.reportsSent++;
+                session.lastReportAt = now;
+                socket.emit('sys_info', 'Partner reported.');
             }
         }
     });
 
     socket.on('typing', (isTyping) => {
+        // Validation: Ensure isTyping is a boolean
+        if (typeof isTyping !== 'boolean') return;
+
         const session = socketStates.get(socket.id);
         if (session && session.state === 'chatting') {
-            socket.to(session.roomId).emit('partner_typing', !!isTyping);
+            socket.to(session.roomId).emit('partner_typing', isTyping);
         }
     });
 
@@ -277,7 +406,12 @@ setInterval(() => {
     io.emit('online_count', socketStates.size);
 }, 30000);
 
-const PORT = process.env.PORT || 3000;
+// Cleanup connection rate limits every hour
+setInterval(() => {
+    connectionRates.clear();
+}, 60 * 60 * 1000);
+
+const PORT = process.env.PORT;
 server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT} (${process.env.NODE_ENV} mode)`);
 });

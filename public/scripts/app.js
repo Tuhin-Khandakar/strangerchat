@@ -15,18 +15,18 @@ const reportBtn = document.getElementById('report-btn');
 const bannedMessage = document.getElementById('banned-message');
 const onlineCount = document.getElementById('online-count');
 
+// State Variables
 let isConnected = false;
 let isBanned = false;
 let typingTimeout;
+let reportsSent = 0;
+let actionLock = false;
 
 // Socket Connection Events
 socket.on('connect', () => {
     if (isBanned) return;
     chatBox.innerHTML = ''; // Clear "Connecting to server..."
 });
-
-// TODO: Persistent Ban Check (Local side)
-// if (localStorage.getItem('is_banned')) { alert('You are banned.'); window.location.reload(); }
 
 // Event Listeners
 tosCheck.addEventListener('change', () => {
@@ -54,6 +54,14 @@ function appendSystemMessage(text) {
     sysDiv.textContent = text;
     chatBox.appendChild(sysDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function resetChatUI() {
+    chatBox.innerHTML = '';
+    msgInput.value = '';
+    typingUI.style.visibility = 'hidden';
+    reportsSent = 0;
+    clearTimeout(typingTimeout);
 }
 
 function setChatState(state) {
@@ -91,16 +99,22 @@ function setChatState(state) {
     }
 }
 
-// Event Listeners
+// Main Controls
 startBtn.addEventListener('click', () => {
     landingScreen.classList.remove('active');
     chatScreen.classList.add('active');
+    resetChatUI();
     socket.emit('find_match');
 });
 
 nextBtn.addEventListener('click', () => {
+    if (actionLock) return;
+
+    actionLock = true;
+    setTimeout(() => { actionLock = false; }, 1000);
+
     socket.emit('leave_chat');
-    chatBox.innerHTML = '';
+    resetChatUI();
     appendSystemMessage("Looking for someone new...");
     socket.emit('find_match');
 });
@@ -123,9 +137,19 @@ msgInput.addEventListener('input', () => {
 });
 
 reportBtn.addEventListener('click', () => {
-    if (!isConnected) return;
+    if (!isConnected || actionLock) return;
+
+    if (reportsSent >= 1) {
+        alert("You have already reported this user.");
+        return;
+    }
+
     if (confirm("Report this person for inappropriate behavior?")) {
+        actionLock = true;
+        setTimeout(() => { actionLock = false; }, 1000);
+
         socket.emit('report_user');
+        reportsSent++;
         alert("Thank you. We will review this session.");
         nextBtn.click();
     }
