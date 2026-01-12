@@ -1,0 +1,64 @@
+{
+  "short_name": "STRNGR",
+  "offline_enabled": true,
+  "name": "STRNGR | Talk. Anonymously.",
+  "description": "Talk to strangers anonymously. Real conversations with real people — no profiles, no pressure, no permanence.",
+  "icons": [
+    {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "logo_dark.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "logo_dark.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0F172A",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#2563EB",
+  "orientation": "portrait",
+  "shortcuts": [
+    {
+      "name": "Start Chat",
+      "short_name": "Chat",
+      "description": "Start a new conversation immediately",
+      "url": "/?action=chat",
+      "icons": [
+        {
+          "src": "icons/smartphone.svg",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "View Terms",
+      "short_name": "Terms",
+      "description": "Read our terms of service",
+      "url": "/terms.html",
+      "icons": [
+        {
+          "src": "icons/shield.svg",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STRNGR | Admin Console</title>
+  <link rel="stylesheet" href="./styles/admin.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Dynamic Favicons -->
+  <link rel="icon" type="image/png" href="logo.png" media="(prefers-color-scheme: light)" />
+  <link rel="icon" type="image/png" href="logo_dark.png" media="(prefers-color-scheme: dark)" />
+  <link rel="apple-touch-icon" href="logo.png" />
+  <link rel="manifest" href="manifest.json" />
+</head>
+
+<body>
+  <div id="auth-overlay" class="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <form class="auth-box" id="login-form">
+      <h2 id="auth-title">Admin Access</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.95rem">
+        Please enter your administrative password to continue.
+      </p>
+      <input type="password" id="auth-token" placeholder="Enter Admin Password" aria-label="Admin Password" required
+        autocomplete="current-password" />
+      <button type="submit" class="btn-primary">Connect System</button>
+    </form>
+  </div>
+
+  <div class="container">
+    <header role="banner" style="display: flex; align-items: center; gap: 1rem">
+      <div class="brand-assets" style="display: flex; align-items: center">
+        <picture>
+          <source srcset="logo.webp" type="image/webp" />
+          <img src="logo.png" alt="STRNGR Logo" class="logo-small logo-light" style="height: 32px; width: auto" />
+        </picture>
+        <picture>
+          <source srcset="logo_dark.webp" type="image/webp" />
+          <img src="logo_dark.png" alt="STRNGR Logo" class="logo-small logo-dark" style="height: 32px; width: auto" />
+        </picture>
+      </div>
+      <h1>STRNGR Moderation</h1>
+      <div id="connection-status" class="badge" style="
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            text-transform: none;
+            color: var(--text-muted);
+          ">
+        Checking connectivity...
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Moderation sections">
+      <button class="tab active" role="tab" aria-selected="true" aria-controls="sec-words"
+        onclick="window.switchTab('words', event)">
+        Banned Words
+      </button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="sec-violations"
+        onclick="window.switchTab('violations', event)">
+        Violations
+      </button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="sec-bans"
+        onclick="window.switchTab('bans', event)">
+        Active Bans
+      </button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="sec-emergency"
+        onclick="window.switchTab('emergency', event)" style="color: var(--danger); font-weight: 600">
+        🚨 Kill Switch
+      </button>
+    </nav>
+
+    <main id="main-content">
+      <!-- Banned Words Section -->
+      <section id="sec-words" class="section active" role="tabpanel">
+        <div class="controls">
+          <input type="text" id="new-word" placeholder="New word to block..." aria-label="New banned word" />
+          <select id="new-severity" aria-label="Severity level">
+            <option value="1">Sev 1 (Message Blocked)</option>
+            <option value="2">Sev 2 (Block + Violation)</option>
+            <option value="3">Sev 3 (Instant Ban)</option>
+          </select>
+          <button class="btn-primary" onclick="window.addWord()">Add Word</button>
+        </div>
+        <div class="table-responsive">
+          <table aria-label="Banned words list">
+            <thead>
+              <tr>
+                <th>Word</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="words-table">
+              <!-- Skeletons will go here -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Violations Section -->
+      <section id="sec-violations" class="section" role="tabpanel" hidden>
+        <div class="controls">
+          <input type="text" id="violations-search" placeholder="Search IP Hash..."
+            aria-label="Search violations by IP Hash" oninput="window.handleViolationSearch(event)" />
+          <button class="btn-secondary" onclick="window.exportViolations()">Export CSV</button>
+        </div>
+        <div class="table-responsive">
+          <table aria-label="Recent violations">
+            <thead>
+              <tr>
+                <th>IP Hash</th>
+                <th>Count</th>
+                <th>Last Seen</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="violations-table"></tbody>
+          </table>
+        </div>
+        <div id="violations-pagination" class="pagination" aria-label="Violations pagination"></div>
+      </section>
+
+      <!-- Bans Section -->
+      <section id="sec-bans" class="section" role="tabpanel" hidden>
+        <div class="controls">
+          <input type="text" id="bans-search" placeholder="Search IP Hash..." aria-label="Search bans by IP Hash"
+            oninput="window.handleBanSearch(event)" />
+          <button class="btn-secondary" onclick="window.exportBans()">Export CSV</button>
+        </div>
+        <div class="table-responsive">
+          <table aria-label="Currently banned users">
+            <thead>
+              <tr>
+                <th>IP Hash</th>
+                <th>Reports</th>
+                <th>Banned Until</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bans-table"></tbody>
+          </table>
+        </div>
+        <div id="bans-pagination" class="pagination" aria-label="Bans pagination"></div>
+      </section>
+
+      <!-- Emergency Kill Switch Section -->
+      <section id="sec-emergency" class="section" role="tabpanel" hidden>
+        <div style="max-width: 800px; margin: 0 auto">
+          <div style="
+                background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+                color: white;
+                padding: 2rem;
+                border-radius: 12px;
+                margin-bottom: 2rem;
+                box-shadow: 0 8px 32px rgba(255, 68, 68, 0.3);
+              ">
+            <h2 style="
+                  margin: 0 0 0.5rem 0;
+                  font-size: 1.75rem;
+                  display: flex;
+                  align-items: center;
+                  gap: 0.75rem;
+                ">
+              🚨 Emergency Kill Switch
+            </h2>
+            <p style="margin: 0; opacity: 0.95; font-size: 0.95rem">
+              Immediately disable matchmaking and disconnect all users. Use only in emergencies.
+            </p>
+          </div>
+
+          <div id="maintenance-status" style="
+                background: var(--bg-white);
+                border: 2px solid var(--border);
+                border-radius: 12px;
+                padding: 2rem;
+                margin-bottom: 2rem;
+              ">
+            <div style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  margin-bottom: 1.5rem;
+                ">
+              <h3 style="margin: 0; font-size: 1.25rem">Current Status</h3>
+              <span id="status-badge" class="badge" style="font-size: 0.9rem; padding: 0.5rem 1rem">Loading...</span>
+            </div>
+            <div id="status-details" style="color: var(--text-muted); font-size: 0.95rem">
+              Checking system status...
+            </div>
+          </div>
+
+          <div style="
+                background: var(--bg-white);
+                border: 2px solid var(--border);
+                border-radius: 12px;
+                padding: 2rem;
+              ">
+            <h3 style="margin: 0 0 1.5rem 0; font-size: 1.25rem">Maintenance Controls</h3>
+
+            <div style="margin-bottom: 1.5rem">
+              <label for="maintenance-reason" style="display: block; margin-bottom: 0.5rem; font-weight: 500">
+                Reason (shown to users):
+              </label>
+              <input type="text" id="maintenance-reason" placeholder="e.g., Emergency maintenance - back soon" style="
+                    width: 100%;
+                    padding: 0.75rem;
+                    border: 2px solid var(--border);
+                    border-radius: 8px;
+                    font-size: 0.95rem;
+                  " value="System maintenance in progress" />
+            </div>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap">
+              <button id="btn-enable-maintenance" onclick="window.enableMaintenance()" class="btn-primary" style="
+                    background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+                    flex: 1;
+                    min-width: 200px;
+                    padding: 1rem;
+                    font-size: 1rem;
+                    font-weight: 600;
+                  ">
+                🛑 Enable Maintenance Mode
+              </button>
+              <button id="btn-disable-maintenance" onclick="window.disableMaintenance()" class="btn-secondary" style="
+                    background: linear-gradient(135deg, #00c853 0%, #00a843 100%);
+                    color: white;
+                    flex: 1;
+                    min-width: 200px;
+                    padding: 1rem;
+                    font-size: 1rem;
+                    font-weight: 600;
+                  ">
+                ✅ Restore Service
+              </button>
+            </div>
+
+            <div style="
+                  margin-top: 1.5rem;
+                  padding: 1rem;
+                  background: #fff3cd;
+                  border: 1px solid #ffc107;
+                  border-radius: 8px;
+                  font-size: 0.9rem;
+                ">
+              <strong>⚠️ Warning:</strong> Enabling maintenance mode will immediately disconnect
+              all active users and prevent new connections.
+            </div>
+          </div>
+
+          <div style="
+                margin-top: 2rem;
+                padding: 1.5rem;
+                background: var(--bg-secondary);
+                border-radius: 12px;
+                font-size: 0.9rem;
+                color: var(--text-muted);
+              ">
+            <h4 style="margin: 0 0 1rem 0; color: var(--text-primary)">When to Use:</h4>
+            <ul style="margin: 0; padding-left: 1.5rem; line-height: 1.8">
+              <li>Abuse wave or spam attack</li>
+              <li>Server instability or critical bugs</li>
+              <li>Media attention requiring immediate shutdown</li>
+              <li>Database maintenance or critical updates</li>
+              <li>Legal or compliance emergencies</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+  </div>
+
+  <template id="skeleton-row">
+    <tr>
+      <td colspan="4">
+        <div class="skeleton"></div>
+      </td>
+    </tr>
+  </template>
+
+  <script type="module" src="./scripts/admin.js"></script>
+</body>
+
+</html>
