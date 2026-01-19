@@ -1,4 +1,8 @@
 import 'dotenv/config';
+import path from 'path';
+
+const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
+
 
 /**
  * STARTUP VALIDATION
@@ -42,6 +46,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+if (MAINTENANCE_MODE) {
+    app.use((req, res) => {
+        res.status(503).sendFile(path.join(__dirname, "../public/maintenance.html"));
+    });
+}
+
 app.use(express.static(path.join(__dirname, "../public")));
 
 const dbPath = path.join(__dirname, 'db');
