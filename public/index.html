@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StrangerChat | Anonymous Text Chat</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="preload" as="image" href="logo.png">
+</head>
+
+<body>
+    <!-- Landing Page -->
+    <div id="landing-screen" class="screen active">
+        <main class="hero">
+            <div class="brand">
+                <div class="logo-wrap">
+                    <img src="logo.png" class="logo" alt="StrangerChat logo">
+                </div>
+                <div class="brand-name">Stranger<span>Chat</span></div>
+            </div>
+            <div id="banned-message" class="banned-alert">You have been banned for violating our terms of service.</div>
+            <h1>Talk to strangers, <br>completely anonymously.</h1>
+            <p>The simplest way to meet new people. No login, no profile, just chat.</p>
+
+            <div class="disclaimer">
+                <input type="checkbox" id="tos-check">
+                <label for="tos-check">I am 18+ and agree to the <a href="terms.html">Terms of Service</a> & <a
+                        href="privacy.html">Privacy Policy</a></label>
+            </div>
+
+            <button id="start-btn" class="primary-btn" disabled>Text Chat</button>
+            <div class="stats">
+                <span id="online-count">Online: ...</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Chat Interface -->
+    <div id="chat-screen" class="screen">
+        <nav class="chat-nav">
+            <img src="logo.png" alt="SC" class="logo-img-small">
+            <div class="status-indicator" id="chat-status">Searching...</div>
+            <button id="report-btn" class="text-btn">Report</button>
+        </nav>
+
+        <div id="chat-box" class="chat-container">
+            <!-- Messages will appear here -->
+            <div class="system-msg">Connecting to server...</div>
+        </div>
+
+        <div class="typing-indicator" id="typing-ui">Stranger is typing...</div>
+
+        <div class="input-area">
+            <button id="next-btn" class="secondary-btn">Next</button>
+            <div class="input-wrapper">
+                <textarea id="msg-input" placeholder="Type a message..." disabled rows="1"></textarea>
+                <button id="send-btn" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts/app.js"></script>
+</body>
+
+</html>
