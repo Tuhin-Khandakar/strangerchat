@@ -7,8 +7,9 @@ const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 /**
  * STARTUP VALIDATION
  */
-const REQUIRED_ENV = ['PORT', 'NODE_ENV'];
+const REQUIRED_ENV = ['PORT'];
 const OPTIONAL_ENV = {
+    NODE_ENV: 'development',
     DB_NAME: 'moderation.db',
     DEBUG: 'false'
 };
@@ -36,7 +37,6 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
 import Database from 'better-sqlite3';
