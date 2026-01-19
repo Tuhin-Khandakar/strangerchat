@@ -22,6 +22,19 @@ let typingTimeout;
 let reportsSent = 0;
 let actionLock = false;
 
+(function lockMobileViewport() {
+    const setVh = () => {
+        const vh = window.visualViewport
+            ? window.visualViewport.height
+            : window.innerHeight;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+
+    setVh();
+    window.addEventListener('resize', setVh);
+    window.visualViewport?.addEventListener('resize', setVh);
+})();
+
 // Mobile Viewport Handling
 function handleViewportResize() {
     if (chatBox) {

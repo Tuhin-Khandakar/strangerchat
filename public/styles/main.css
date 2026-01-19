@@ -27,7 +27,7 @@ html {
 
 .screen {
     display: none;
-    height: 100dvh;
+    height: var(--vh, 100dvh);
     /* dynamic viewport for mobile keyboards */
     flex-direction: column;
 }
@@ -383,3 +383,22 @@ textarea {
 }
 
 /* Legacy mobile fix removed in favor of modernized flex/dvh layout */
+
+/* ===== Mobile viewport hardening ===== */
+
+/* Prevent iOS bottom bar overlap */
+.input-area {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* iOS momentum scrolling fix */
+.chat-container {
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+}
+
+/* Prevent body scroll bleed */
+body {
+    overscroll-behavior: none;
+    touch-action: manipulation;
+}
