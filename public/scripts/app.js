@@ -22,6 +22,17 @@ let typingTimeout;
 let reportsSent = 0;
 let actionLock = false;
 
+// Mobile Viewport Handling
+function handleViewportResize() {
+    if (chatBox) {
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
+
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleViewportResize);
+}
+
 // Socket Connection Events
 socket.on('connect', () => {
     if (isBanned) return;
@@ -134,6 +145,14 @@ msgInput.addEventListener('input', () => {
     typingTimeout = setTimeout(() => {
         socket.emit('typing', false);
     }, 2000);
+});
+
+msgInput.addEventListener('focus', () => {
+    setTimeout(() => {
+        if (chatBox) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }, 300); // allow keyboard animation
 });
 
 reportBtn.addEventListener('click', () => {

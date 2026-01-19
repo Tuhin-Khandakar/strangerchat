@@ -27,7 +27,8 @@ html {
 
 .screen {
     display: none;
-    height: 100vh;
+    height: 100dvh;
+    /* dynamic viewport for mobile keyboards */
     flex-direction: column;
 }
 
@@ -187,6 +188,7 @@ html {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    -webkit-overflow-scrolling: touch;
 }
 
 .msg {
@@ -270,6 +272,8 @@ html {
     gap: 12px;
     align-items: flex-end;
     background: #fff;
+    position: sticky;
+    bottom: 0;
 }
 
 .input-wrapper {
@@ -378,40 +382,4 @@ textarea {
     }
 }
 
-/* ===============================
-   Mobile Chat Fix (CRITICAL)
-   =============================== */
-
-@media (max-width: 768px) {
-    body {
-        height: 100vh;
-        overflow: hidden;
-    }
-
-    #chat-box {
-        height: calc(100vh - 120px);
-        /* Adjusted for nav and typing indicator */
-        overflow-y: auto;
-        padding-bottom: 20px;
-    }
-
-    .input-area {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        background: #fff;
-        padding: 10px;
-        border-top: 1px solid #ddd;
-        z-index: 999;
-    }
-
-    #msg-input {
-        font-size: 16px;
-        /* prevents zoom on iOS */
-    }
-
-    #send-btn {
-        font-size: 16px;
-    }
-}
+/* Legacy mobile fix removed in favor of modernized flex/dvh layout */
