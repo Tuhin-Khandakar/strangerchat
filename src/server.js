@@ -1,46 +1,33 @@
 import 'dotenv/config';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
+// 1. Global Error Handling for better logs
+process.on('uncaughtException', (err) => {
+    console.error('[CRITICAL] Uncaught Exception:', err.stack || err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// 2. Environment Parsing
+const PORT = Number(process.env.PORT) || 10000;
+const NODE_ENV = process.env.NODE_ENV || 'production';
+const DB_NAME = process.env.DB_NAME || 'moderation.db';
 const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 
+console.log(`[INIT] Starting in ${NODE_ENV} mode on port ${PORT}`);
 
-/**
- * STARTUP VALIDATION
- */
-const REQUIRED_ENV = ['PORT'];
-const OPTIONAL_ENV = {
-    NODE_ENV: 'development',
-    DB_NAME: 'moderation.db',
-    DEBUG: 'false'
-};
-
-// Check Required
-const missingRequired = REQUIRED_ENV.filter(key => !process.env[key]);
-if (missingRequired.length > 0) {
-    console.error('[FATAL] Environment variable validation failed');
-    missingRequired.forEach(key => {
-        console.error(`- ${key}: is required but missing`);
-    });
-    console.error('Please refer to .env.example and update your .env file.');
-    process.exit(1);
-}
-
-// Check Optional & Set Defaults
-Object.entries(OPTIONAL_ENV).forEach(([key, defaultValue]) => {
-    if (!process.env[key]) {
-        console.warn(`\x1b[33m[WARN] Optional environment variable ${key} is missing. Using default: ${defaultValue}\x1b[0m`);
-        process.env[key] = defaultValue;
-    }
-});
 
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
-import fs from 'fs';
 import Database from 'better-sqlite3';
-import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,11 +42,25 @@ if (MAINTENANCE_MODE) {
 
 app.use(express.static(path.join(__dirname, "../public")));
 
-const dbPath = path.join(__dirname, 'db');
+const dbPath = path.join(process.cwd(), 'db');
 if (!fs.existsSync(dbPath)) {
-    fs.mkdirSync(dbPath, { recursive: true });
+    try {
+        fs.mkdirSync(dbPath, { recursive: true });
+        console.log(`[INIT] Created database directory: ${dbPath}`);
+    } catch (err) {
+        console.error(`[ERROR] Could not create db directory: ${err.message}`);
+    }
 }
-const db = new Database(path.join(dbPath, process.env.DB_NAME));
+
+let db;
+try {
+    db = new Database(path.join(dbPath, DB_NAME));
+    console.log(`[INIT] SQLite Database initialized at ${path.join(dbPath, DB_NAME)}`);
+} catch (err) {
+    console.error("[FATAL] Database initialization failed:", err);
+    process.exit(1);
+}
+
 
 try {
     db.prepare(`
@@ -425,7 +426,6 @@ setInterval(() => {
     connectionRates.clear();
 }, 60 * 60 * 1000);
 
-const PORT = process.env.PORT;
-server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT} (${process.env.NODE_ENV} mode)`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[SUCCESS] StrangerChat is live on port ${PORT}`);
 });
