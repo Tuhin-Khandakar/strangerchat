@@ -249,3 +249,19 @@ socket.on('connect_error', () => {
         appendSystemMessage("Connection lost. Retrying...");
     }
 });
+
+// Scroll to Bottom Button Logic
+const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
+if (chatBox && scrollBottomBtn) {
+    chatBox.addEventListener('scroll', () => {
+        const nearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 120;
+        scrollBottomBtn.hidden = nearBottom;
+    });
+
+    scrollBottomBtn.addEventListener('click', () => {
+        chatBox.scrollTo({
+            top: chatBox.scrollHeight,
+            behavior: 'smooth'
+        });
+    });
+}
