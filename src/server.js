@@ -42,7 +42,13 @@ if (MAINTENANCE_MODE) {
 
 app.use(express.static(path.join(__dirname, "../public")));
 
-const dbPath = path.join(process.cwd(), 'db');
+// Use /tmp for database on cloud platforms if permission is an issue, otherwise use root db/
+const dbPath = NODE_ENV === 'production'
+    ? path.join('/tmp', 'strangerchat_db')
+    : path.join(process.cwd(), 'db');
+
+console.log(`[INIT] Database path selected: ${dbPath}`);
+
 if (!fs.existsSync(dbPath)) {
     try {
         fs.mkdirSync(dbPath, { recursive: true });
