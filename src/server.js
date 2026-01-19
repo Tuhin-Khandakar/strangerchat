@@ -12,7 +12,10 @@ const OPTIONAL_ENV = {
 // Check Required
 const missingRequired = REQUIRED_ENV.filter(key => !process.env[key]);
 if (missingRequired.length > 0) {
-    console.error(`\x1b[31m[FATAL] Missing required environment variables: ${missingRequired.join(', ')}\x1b[0m`);
+    console.error('[FATAL] Environment variable validation failed');
+    missingRequired.forEach(key => {
+        console.error(`- ${key}: is required but missing`);
+    });
     console.error('Please refer to .env.example and update your .env file.');
     process.exit(1);
 }
