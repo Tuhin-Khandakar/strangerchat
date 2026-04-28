@@ -33,6 +33,9 @@ export default function ChatPage() {
   const [showPremium, setShowPremium] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
   const [interestInput, setInterestInput] = useState('');
+  const [mode, setMode] = useState<'standard' | 'spy_asker' | 'spy_discussant'>('standard');
+  const [spyQuestion, setSpyQuestion] = useState('');
+  const [isAsker, setIsAsker] = useState(false);
   
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -68,8 +71,15 @@ export default function ChatPage() {
     });
 
     // Match found - trigger animation
-    socket.on('matched', (data: { commonInterests?: string[] }) => {
+    socket.on('matched', (data: { commonInterests?: string[], mode?: string, question?: string, isAsker?: boolean }) => {
       setStatus('matched');
+      if (data.mode === 'spy') {
+        setIsAsker(!!data.isAsker);
+        addSystemMessage(`🕵️ Spy Mode: ${data.question}`);
+        if (data.isAsker) {
+            addSystemMessage("You are the asker. You can watch the strangers discuss your question.");
+        }
+      }
       setShowMatch(true);
       confetti({
         particleCount: 100,
@@ -81,6 +91,8 @@ export default function ChatPage() {
       let matchMsg = "✨ You've been matched! Say hi!";
       if (data.commonInterests && data.commonInterests.length > 0) {
         matchMsg += ` You both like: ${data.commonInterests.join(', ')}`;
+      } else if (interests.length > 0) {
+        matchMsg += " No common interests found, but we found someone for you!";
       }
       addSystemMessage(matchMsg);
 
@@ -89,7 +101,7 @@ export default function ChatPage() {
     });
 
     // Receive message from stranger
-    socket.on('receive_msg', (data: { text: string }) => {
+    socket.on('receive_msg', (data: { text: string, senderId?: string }) => {
       addMessage(data.text, 'stranger');
       // Play message sound
       new Audio('/sounds/message.mp3').play().catch(() => {});
@@ -135,9 +147,9 @@ export default function ChatPage() {
   }, [socket]);
 
   // Helper: Add message to chat
-  const addMessage = useCallback((text: string, sender: 'me' | 'stranger') => {
+  const addMessage = useCallback((text: string, sender: 'me' | 'stranger', id?: string) => {
     const newMessage: Message = {
-      id: Math.random().toString(),
+      id: id || Math.random().toString(),
       sender,
       text,
       timestamp: Date.now(),
@@ -202,8 +214,12 @@ export default function ChatPage() {
     if (!socket) return;
     setMessages([]);
     setStatus('searching');
-    socket.emit('find_match', { interests });
-  }, [socket, interests]);
+    socket.emit('find_match', {
+        interests,
+        mode,
+        question: mode === 'spy_asker' ? spyQuestion : undefined
+    });
+  }, [socket, interests, mode, spyQuestion]);
 
   // Skip to next
   const handleNext = useCallback(() => {
@@ -211,8 +227,12 @@ export default function ChatPage() {
     socket.emit('leave_chat');
     setMessages([]);
     setStatus('searching');
-    socket.emit('find_match', { interests });
-  }, [socket, interests]);
+    socket.emit('find_match', {
+        interests,
+        mode,
+        question: mode === 'spy_asker' ? spyQuestion : undefined
+    });
+  }, [socket, interests, mode, spyQuestion]);
 
   // Report user
   const handleReport = useCallback((reason: string) => {
@@ -221,11 +241,25 @@ export default function ChatPage() {
     setShowReport(false);
   }, [socket]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+            if (status === 'matched' || status === 'searching' || status === 'waiting') {
+                handleNext();
+            }
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [status, handleNext]);
+
   // Render
   return (
     <div className="h-screen bg-white flex flex-col">
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-4 shadow-lg flex justify-between items-center">
+      <header className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-4 shadow-lg flex flex-col gap-4">
+        <div className="flex justify-between items-center">
         <div>
           <h1 className="font-bold text-lg">StrangerChat</h1>
           <p className="text-xs opacity-90">
@@ -248,6 +282,38 @@ export default function ChatPage() {
             </button>
           )}
         </div>
+        </div>
+
+        {status === 'idle' && (
+           <div className="flex flex-col gap-2 bg-white/10 p-3 rounded-xl border border-white/20">
+              <div className="flex gap-4 items-center">
+                 <span className="text-xs font-bold uppercase">Mode:</span>
+                 <div className="flex gap-2">
+                    <button
+                       onClick={() => setMode('standard')}
+                       className={`px-3 py-1 rounded-full text-xs font-bold transition ${mode === 'standard' ? "bg-white text-blue-600" : "bg-white/10 hover:bg-white/20"}`}
+                    >Standard</button>
+                    <button
+                       onClick={() => setMode('spy_discussant')}
+                       className={`px-3 py-1 rounded-full text-xs font-bold transition ${mode === 'spy_discussant' ? "bg-white text-blue-600" : "bg-white/10 hover:bg-white/20"}`}
+                    >Spy Mode</button>
+                    <button
+                       onClick={() => setMode('spy_asker')}
+                       className={`px-3 py-1 rounded-full text-xs font-bold transition ${mode === 'spy_asker' ? "bg-white text-blue-600" : "bg-white/10 hover:bg-white/20"}`}
+                    >Ask Question</button>
+                 </div>
+              </div>
+              {mode === 'spy_asker' && (
+                 <input
+                    type="text"
+                    placeholder="Enter your question for strangers..."
+                    value={spyQuestion}
+                    onChange={(e) => setSpyQuestion(e.target.value)}
+                    className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm outline-none placeholder:text-white/40 focus:bg-white/20 transition"
+                 />
+              )}
+           </div>
+        )}
       </header>
 
       {/* Show Match Animation */}

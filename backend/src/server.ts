@@ -124,17 +124,21 @@ interface User {
   timezone: string;
   isPremium: boolean;
   isVerified: boolean;
+  college?: string;
 }
 
 interface SocketSession {
   state: 'idle' | 'waiting' | 'chatting';
+  mode: 'standard' | 'spy_asker' | 'spy_discussant';
   user: User;
   partnerId: string | null;
+  partnerIds?: string[]; // For Spy Asker (watching 2 people)
   roomId: string | null;
   lastMsgAt: number;
   reportsSent: number;
   matchedAt: number;
   streak: number;
+  spyQuestion?: string;
 }
 
 // ============================================================================
@@ -284,10 +288,41 @@ const moderation = new ModerationService();
 class MatchingService {
   private queue = new Map<string, SocketSession>();
 
-  async findMatch(session: SocketSession): Promise<string | null> {
-    console.log(`🔍 Searching match for ${session.user.id}. Language: ${session.user.language}`);
+  async findMatch(session: SocketSession): Promise<string | string[] | null> {
+    console.log(`🔍 Searching match for ${session.user.id} in mode ${session.mode}`);
+
+    // 1. Spy Asker Logic
+    if (session.mode === 'spy_asker') {
+        const discussants = Array.from(this.queue.values()).filter(s =>
+            s.state === 'waiting' && s.mode === 'spy_discussant' && s.user.language === session.user.language
+        );
+        if (discussants.length >= 2) {
+            return [discussants[0].user.id, discussants[1].user.id];
+        }
+        this.queue.set(session.user.id, session);
+        return null;
+    }
+
+    // 2. Discussant Logic
+    if (session.mode === 'spy_discussant') {
+        const askers = Array.from(this.queue.values()).filter(s =>
+            s.state === 'waiting' && s.mode === 'spy_asker' && s.user.language === session.user.language
+        );
+        if (askers.length > 0) {
+             const discussants = Array.from(this.queue.values()).filter(s =>
+                s.state === 'waiting' && s.mode === 'spy_discussant' && s.user.id !== session.user.id
+            );
+            if (discussants.length > 0) {
+                return [askers[0].user.id, discussants[0].user.id];
+            }
+        }
+        this.queue.set(session.user.id, session);
+        return null;
+    }
+
+    // 3. Standard Logic
     const candidates = Array.from(this.queue.values()).filter(s => {
-      const isQualified = s.state === 'waiting' && s.user.id !== session.user.id && s.user.language === session.user.language;
+      const isQualified = s.state === 'waiting' && s.mode === 'standard' && s.user.id !== session.user.id && s.user.language === session.user.language;
       return isQualified;
     });
 
@@ -347,29 +382,61 @@ io.on('connection', async (socket) => {
   socket.emit('online_count', socketSessions.size);
   io.emit('online_count', socketSessions.size);
 
-  socket.on('find_match', async (data: { interests?: string[] } = {}) => {
+  socket.on('find_match', async (data: { interests?: string[], mode?: 'standard' | 'spy_asker' | 'spy_discussant', question?: string, college?: string } = {}) => {
     const session = socketSessions.get(socket.id);
     if (!session || Date.now() - session.matchedAt < CONSTRAINTS.MATCH_COOLDOWN_MS) return;
-    session.matchedAt = Date.now();
-    if (Array.isArray(data.interests)) {
-        session.user.interests = data.interests;
-    }
 
-    const matchedUserId = await matcher.findMatch(session);
-    if (matchedUserId) {
-      const matchedSocket = Array.from(io.sockets.sockets.values()).find(s => socketSessions.get(s.id)?.user.id === matchedUserId);
-      if (matchedSocket) {
-        const roomId = uuidv4();
-        const matchedSession = socketSessions.get(matchedSocket.id)!;
-        session.state = 'chatting'; session.partnerId = matchedUserId; session.roomId = roomId; session.streak++;
-        matchedSession.state = 'chatting'; matchedSession.partnerId = session.user.id; matchedSession.roomId = roomId; matchedSession.streak++;
-        socket.join(roomId); matchedSocket.join(roomId);
-        matcher.removeFromQueue(session.user.id); matcher.removeFromQueue(matchedUserId);
-        const interests1 = Array.isArray(session.user.interests) ? session.user.interests : [];
-        const interests2 = Array.isArray(matchedSession.user.interests) ? matchedSession.user.interests : [];
-        const commonInterests = interests1.filter(i => interests2.includes(i));
-        socket.emit('matched', { streak: session.streak, commonInterests });
-        matchedSocket.emit('matched', { streak: matchedSession.streak, commonInterests });
+    session.matchedAt = Date.now();
+    session.mode = data.mode || 'standard';
+    if (Array.isArray(data.interests)) session.user.interests = data.interests;
+    if (data.question) session.spyQuestion = data.question;
+    if (data.college) session.user.college = data.college;
+
+    const matchResult = await matcher.findMatch(session);
+    if (matchResult) {
+      const roomId = uuidv4();
+      if (typeof matchResult === 'string') {
+        const matchedUserId = matchResult;
+        const matchedSocket = Array.from(io.sockets.sockets.values()).find(s => socketSessions.get(s.id)?.user.id === matchedUserId);
+        if (matchedSocket) {
+          const matchedSession = socketSessions.get(matchedSocket.id)!;
+          session.state = 'chatting'; session.partnerId = matchedUserId; session.roomId = roomId; session.streak++;
+          matchedSession.state = 'chatting'; matchedSession.partnerId = session.user.id; matchedSession.roomId = roomId; matchedSession.streak++;
+          socket.join(roomId); matchedSocket.join(roomId);
+          matcher.removeFromQueue(session.user.id); matcher.removeFromQueue(matchedUserId);
+          const interests1 = Array.isArray(session.user.interests) ? session.user.interests : [];
+          const interests2 = Array.isArray(matchedSession.user.interests) ? matchedSession.user.interests : [];
+          const commonInterests = interests1.filter(i => interests2.includes(i));
+          socket.emit('matched', { streak: session.streak, commonInterests });
+          matchedSocket.emit('matched', { streak: matchedSession.streak, commonInterests });
+        }
+      } else if (Array.isArray(matchResult)) {
+        // Spy Mode Match
+        const partnerIds = matchResult;
+        const partnerSockets = partnerIds.map(id => Array.from(io.sockets.sockets.values()).find(s => socketSessions.get(s.id)?.user.id === id)).filter(Boolean) as any[];
+
+        if (partnerSockets.length === 2) {
+            const sessions = [session, ...partnerSockets.map(s => socketSessions.get(s.id)!)];
+            const asker = sessions.find(s => s.mode === 'spy_asker')!;
+            const discussants = sessions.filter(s => s.mode === 'spy_discussant');
+
+            sessions.forEach(s => {
+                s.state = 'chatting';
+                s.roomId = roomId;
+                const sock = io.sockets.sockets.get(Array.from(socketSessions.entries()).find(([id, sess]) => sess.user.id === s.user.id)![0]);
+                sock?.join(roomId);
+                matcher.removeFromQueue(s.user.id);
+            });
+
+            io.to(roomId).emit('matched', {
+                mode: 'spy',
+                question: asker.spyQuestion,
+                isAsker: false
+            });
+
+            const askerSocket = Array.from(socketSessions.entries()).find(([id, sess]) => sess.user.id === asker.user.id)![0];
+            io.sockets.sockets.get(askerSocket)?.emit('matched', { mode: 'spy', question: asker.spyQuestion, isAsker: true });
+        }
       }
     } else {
       session.state = 'waiting';
@@ -394,7 +461,7 @@ io.on('connection', async (socket) => {
            [uuidv4(), session.roomId, session.user.id, text, modResult.action === 'FLAG' ? 0.5 : 0, Date.now()])
            .catch(console.error);
 
-    socket.to(session.roomId!).emit('receive_msg', { text });
+    socket.to(session.roomId!).emit('receive_msg', { text, senderId: session.user.id });
   });
 
   socket.on('typing', (bool) => {
