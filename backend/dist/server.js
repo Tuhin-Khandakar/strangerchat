@@ -108,7 +108,6 @@ const initStorage = async () => {
         };
     }
 };
-initStorage();
 let stripe = null;
 if (process.env.STRIPE_SECRET_KEY) {
     stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY, {
@@ -473,8 +472,10 @@ app.post('/api/admin/ban', async (req, res) => {
     await dbExec('INSERT INTO user_moderation (ip_hash, banned_until) VALUES ($1, $2) ON CONFLICT (ip_hash) DO UPDATE SET banned_until = $2', [ipHash, bannedUntil]);
     res.json({ success: true });
 });
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Server on port ${PORT}`);
+initStorage().then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
+        console.log(`✅ Server on port ${PORT}`);
+    });
 });
 process.on('SIGTERM', () => {
     server.close(() => {
