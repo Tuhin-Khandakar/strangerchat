@@ -105,8 +105,6 @@ const initStorage = async () => {
     }
 };
 
-initStorage();
-
 let stripe: any = null;
 if (process.env.STRIPE_SECRET_KEY) {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
@@ -523,8 +521,10 @@ app.post('/api/admin/ban', async (req, res) => {
     res.json({ success: true });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server on port ${PORT}`);
+initStorage().then(() => {
+    server.listen(PORT, '0.0.0.0', () => {
+        console.log(`✅ Server on port ${PORT}`);
+    });
 });
 
 process.on('SIGTERM', () => {

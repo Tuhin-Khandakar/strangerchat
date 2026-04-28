@@ -31,6 +31,7 @@ export default function ChatPage() {
   const [showMatch, setShowMatch] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
   const [interests, setInterests] = useState<string[]>([]);
+  const [interestInput, setInterestInput] = useState('');
   
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -158,12 +159,6 @@ export default function ChatPage() {
     // Emit to server
     socket.emit('send_msg', text);
 
-    // Clear input
-    if (inputRef.current) {
-      inputRef.current.value = '';
-      inputRef.current.style.height = '40px';
-    }
-
     // Stop typing indicator
     socket.emit('typing', false);
   }, [status, socket, addMessage]);
@@ -190,8 +185,8 @@ export default function ChatPage() {
     if (!socket) return;
     setMessages([]);
     setStatus('searching');
-    socket.emit('find_match');
-  }, [socket]);
+    socket.emit('find_match', { interests });
+  }, [socket, interests]);
 
   // Skip to next
   const handleNext = useCallback(() => {
@@ -199,8 +194,8 @@ export default function ChatPage() {
     socket.emit('leave_chat');
     setMessages([]);
     setStatus('searching');
-    socket.emit('find_match');
-  }, [socket]);
+    socket.emit('find_match', { interests });
+  }, [socket, interests]);
 
   // Report user
   const handleReport = useCallback((reason: string) => {
@@ -274,39 +269,46 @@ export default function ChatPage() {
       {/* Input Area */}
       <div className="border-t border-gray-200 p-4 bg-white space-y-3">
         <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Interests:</span>
-            <div className="flex gap-1 overflow-x-auto no-scrollbar">
-                {interests.length === 0 ? (
-                    <button 
-                        onClick={() => isPremium ? setInterests(['coding', 'gaming']) : setShowPremium(true)}
-                        className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded border border-dashed border-gray-300 hover:bg-gray-200 transition"
-                    >
-                        + Add Interests {!isPremium && '🔒'}
-                    </button>
-                ) : (
-                    interests.map(i => (
-                        <span key={i} className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded flex items-center gap-1">
-                            {i} <button onClick={() => setInterests(prev => prev.filter(x => x !== i))}>×</button>
-                        </span>
-                    ))
-                )}
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-tight shrink-0">Interests:</span>
+            <div className="flex gap-1 overflow-x-auto no-scrollbar flex-1 items-center">
+                {interests.map(i => (
+                    <span key={i} className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded flex items-center gap-1 whitespace-nowrap">
+                        {i} <button onClick={() => setInterests(prev => prev.filter(x => x !== i))} className="hover:text-blue-800">×</button>
+                    </span>
+                ))}
+                <input
+                    type="text"
+                    value={interestInput}
+                    onChange={(e) => setInterestInput(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                            e.preventDefault();
+                            const val = interestInput.trim().toLowerCase();
+                            if (val && !interests.includes(val)) {
+                                setInterests(prev => [...prev, val]);
+                            }
+                            setInterestInput('');
+                        }
+                    }}
+                    placeholder={interests.length === 0 ? "Add interests (e.g. music, coding)" : "Add more..."}
+                    className="text-xs outline-none bg-transparent flex-1 min-w-[120px]"
+                />
             </div>
         </div>
         <div className="flex gap-2">
-          {status === 'matched' ? (
+          {status === 'matched' || status === 'waiting' || status === 'searching' ? (
             <button
               onClick={handleNext}
               className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium transition"
             >
-              Next
+              {status === 'matched' ? 'Next' : 'Stop'}
             </button>
           ) : (
             <button
               onClick={handleFindMatch}
-              disabled={status === 'searching'}
               className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition"
             >
-              {status === 'searching' ? 'Connecting...' : status === 'waiting' ? 'Searching...' : 'New Chat'}
+              New Chat
             </button>
           )}
 
