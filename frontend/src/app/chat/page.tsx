@@ -12,6 +12,7 @@ import { MatchAnimation } from '@/components/Matching/MatchAnimation';
 import { AdBanner } from '@/components/Ads/AdBanner';
 import { PremiumModal } from '@/components/Premium/PremiumModal';
 import confetti from 'canvas-confetti';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   id: string;
@@ -67,7 +68,7 @@ export default function ChatPage() {
     });
 
     // Match found - trigger animation
-    socket.on('matched', () => {
+    socket.on('matched', (data: { commonInterests?: string[] }) => {
       setStatus('matched');
       setShowMatch(true);
       confetti({
@@ -76,12 +77,22 @@ export default function ChatPage() {
         origin: { y: 0.6 }
       });
       setTimeout(() => setShowMatch(false), 800);
-      addSystemMessage('✨ You\'ve been matched! Say hi!');
+
+      let matchMsg = "✨ You've been matched! Say hi!";
+      if (data.commonInterests && data.commonInterests.length > 0) {
+        matchMsg += ` You both like: ${data.commonInterests.join(', ')}`;
+      }
+      addSystemMessage(matchMsg);
+
+      // Play match sound
+      new Audio('/sounds/match.mp3').play().catch(() => {});
     });
 
     // Receive message from stranger
     socket.on('receive_msg', (data: { text: string }) => {
       addMessage(data.text, 'stranger');
+      // Play message sound
+      new Audio('/sounds/message.mp3').play().catch(() => {});
     });
 
     // Stranger typing indicator
@@ -159,6 +170,12 @@ export default function ChatPage() {
     // Emit to server
     socket.emit('send_msg', text);
 
+    // Clear input
+    if (inputRef.current) {
+      inputRef.current.value = '';
+      inputRef.current.style.height = '40px';
+    }
+
     // Stop typing indicator
     socket.emit('typing', false);
   }, [status, socket, addMessage]);
@@ -218,7 +235,10 @@ export default function ChatPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm opacity-90">👥 {onlineCount.toLocaleString()} online</span>
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-white/20 rounded-full text-xs font-medium">
+             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+             {onlineCount.toLocaleString()} online
+          </div>
           {status === 'matched' && (
             <button
               onClick={() => setShowReport(true)}
@@ -240,21 +260,41 @@ export default function ChatPage() {
       >
         {!isPremium && <AdBanner className="mb-4" />}
         
-        {messages.length === 0 && status === 'searching' && (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto animate-pulse">
-                <span className="text-3xl">🔄</span>
+        <AnimatePresence>
+          {messages.length === 0 && status === 'searching' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.1 }}
+              className="h-full flex items-center justify-center"
+            >
+              <div className="text-center space-y-4">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto"
+                >
+                  <span className="text-3xl">🔄</span>
+                </motion.div>
+                <p className="text-gray-600 font-medium">Finding your perfect match...</p>
+                <p className="text-sm text-gray-500">Usually takes less than 2 seconds</p>
               </div>
-              <p className="text-gray-600 font-medium">Finding your perfect match...</p>
-              <p className="text-sm text-gray-500">Usually takes less than 2 seconds</p>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
+        <AnimatePresence initial={false}>
+          {messages.map((msg) => (
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <MessageBubble message={msg} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {isTyping && <TypingIndicator />}
       </div>

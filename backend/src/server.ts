@@ -309,7 +309,9 @@ class MatchingService {
   }
 
   private scoreMatch(user1: SocketSession, user2: SocketSession): number {
-    const interestOverlap = user1.user.interests.filter(i => user2.user.interests.includes(i)).length / Math.max(user1.user.interests.length, 1);
+    const interests1 = Array.isArray(user1.user.interests) ? user1.user.interests : [];
+    const interests2 = Array.isArray(user2.user.interests) ? user2.user.interests : [];
+    const interestOverlap = interests1.filter(i => interests2.includes(i)).length / Math.max(interests1.length, 1);
     const tzDiff = Math.abs(parseInt(user1.user.timezone) - parseInt(user2.user.timezone));
     const tzProximity = Math.max(0, 1 - tzDiff / 12);
     const langMatch = user1.user.language === user2.user.language ? 1 : 0.5;
@@ -349,7 +351,9 @@ io.on('connection', async (socket) => {
     const session = socketSessions.get(socket.id);
     if (!session || Date.now() - session.matchedAt < CONSTRAINTS.MATCH_COOLDOWN_MS) return;
     session.matchedAt = Date.now();
-    if (data.interests) session.user.interests = data.interests;
+    if (Array.isArray(data.interests)) {
+        session.user.interests = data.interests;
+    }
 
     const matchedUserId = await matcher.findMatch(session);
     if (matchedUserId) {
@@ -361,8 +365,11 @@ io.on('connection', async (socket) => {
         matchedSession.state = 'chatting'; matchedSession.partnerId = session.user.id; matchedSession.roomId = roomId; matchedSession.streak++;
         socket.join(roomId); matchedSocket.join(roomId);
         matcher.removeFromQueue(session.user.id); matcher.removeFromQueue(matchedUserId);
-        socket.emit('matched', { streak: session.streak });
-        matchedSocket.emit('matched', { streak: matchedSession.streak });
+        const interests1 = Array.isArray(session.user.interests) ? session.user.interests : [];
+        const interests2 = Array.isArray(matchedSession.user.interests) ? matchedSession.user.interests : [];
+        const commonInterests = interests1.filter(i => interests2.includes(i));
+        socket.emit('matched', { streak: session.streak, commonInterests });
+        matchedSocket.emit('matched', { streak: matchedSession.streak, commonInterests });
       }
     } else {
       session.state = 'waiting';
