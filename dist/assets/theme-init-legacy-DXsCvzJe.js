@@ -1,0 +1,1 @@
+System.register([],function(e,t){"use strict";return{execute:function(){!function(){const e=localStorage.getItem("theme");e&&document.documentElement.setAttribute("data-theme",e);const t=()=>{const e=.01*window.innerHeight;document.documentElement.style.setProperty("--vh",`${e}px`)};t(),window.addEventListener("resize",t)}()}}});

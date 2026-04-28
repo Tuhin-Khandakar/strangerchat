@@ -1,0 +1,1 @@
+!function(){const e=localStorage.getItem("theme");e&&document.documentElement.setAttribute("data-theme",e);const t=()=>{const e=.01*window.innerHeight;document.documentElement.style.setProperty("--vh","".concat(e,"px"))};t(),window.addEventListener("resize",t)}();

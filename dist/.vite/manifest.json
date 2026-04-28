@@ -1,0 +1,234 @@
+{
+  "../../node_modules/socket.io-client/build/esm/index-legacy.js": {
+    "file": "assets/vendor-socket-legacy-BgWGzsjg.js",
+    "name": "vendor-socket",
+    "src": "../../node_modules/socket.io-client/build/esm/index-legacy.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vendor-legacy-BsY82dOW.js"
+    ]
+  },
+  "../../node_modules/socket.io-client/build/esm/index.js": {
+    "file": "assets/vendor-socket-Yeh-ADtn.js",
+    "name": "vendor-socket",
+    "src": "../../node_modules/socket.io-client/build/esm/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vendor-cye3WufF.js"
+    ]
+  },
+  "../../vite/legacy-polyfills-legacy": {
+    "file": "assets/polyfills-legacy-KieGqe3Q.js",
+    "name": "polyfills",
+    "src": "../../vite/legacy-polyfills-legacy",
+    "isEntry": true
+  },
+  "_admin-logic-Bl0u50cu.js": {
+    "file": "assets/admin-logic-Bl0u50cu.js",
+    "name": "admin-logic",
+    "isDynamicEntry": true,
+    "dynamicImports": [
+      "../../node_modules/socket.io-client/build/esm/index.js"
+    ]
+  },
+  "_admin-logic-legacy-BjFmdYea.js": {
+    "file": "assets/admin-logic-legacy-BjFmdYea.js",
+    "name": "admin-logic",
+    "isDynamicEntry": true,
+    "dynamicImports": [
+      "../../node_modules/socket.io-client/build/esm/index-legacy.js"
+    ]
+  },
+  "_chat-logic-DnXj2hsa.js": {
+    "file": "assets/chat-logic-DnXj2hsa.js",
+    "name": "chat-logic",
+    "isDynamicEntry": true,
+    "imports": [
+      "../../node_modules/socket.io-client/build/esm/index.js",
+      "_admin-logic-Bl0u50cu.js"
+    ]
+  },
+  "_chat-logic-legacy-Yu-1uwyC.js": {
+    "file": "assets/chat-logic-legacy-Yu-1uwyC.js",
+    "name": "chat-logic",
+    "isDynamicEntry": true,
+    "imports": [
+      "../../node_modules/socket.io-client/build/esm/index-legacy.js",
+      "_admin-logic-legacy-BjFmdYea.js"
+    ]
+  },
+  "_main-T0BKeT9w.js": {
+    "file": "assets/main-T0BKeT9w.js",
+    "src": "_main-T0BKeT9w.js"
+  },
+  "_main-legacy-B2lRchDN.js": {
+    "file": "assets/main-legacy-B2lRchDN.js",
+    "name": "main"
+  },
+  "_modulepreload-polyfill-YP0FEG5d.js": {
+    "file": "assets/modulepreload-polyfill-YP0FEG5d.js",
+    "name": "modulepreload-polyfill"
+  },
+  "_modulepreload-polyfill-legacy-CnvmjJHj.js": {
+    "file": "assets/modulepreload-polyfill-legacy-CnvmjJHj.js",
+    "name": "modulepreload-polyfill"
+  },
+  "_theme-init-DL5cV4lD.js": {
+    "file": "assets/theme-init-DL5cV4lD.js",
+    "name": "theme-init"
+  },
+  "_theme-init-legacy-DXsCvzJe.js": {
+    "file": "assets/theme-init-legacy-DXsCvzJe.js",
+    "name": "theme-init"
+  },
+  "_vendor-cye3WufF.js": {
+    "file": "assets/vendor-cye3WufF.js",
+    "name": "vendor"
+  },
+  "_vendor-legacy-BsY82dOW.js": {
+    "file": "assets/vendor-legacy-BsY82dOW.js",
+    "name": "vendor"
+  },
+  "admin-legacy.html": {
+    "file": "assets/admin-legacy-DmGKxjT_.js",
+    "name": "admin",
+    "src": "admin-legacy.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-legacy-CnvmjJHj.js",
+      "_admin-logic-legacy-BjFmdYea.js"
+    ]
+  },
+  "admin.html": {
+    "file": "assets/admin-lYE2iPDv.js",
+    "name": "admin",
+    "src": "admin.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-YP0FEG5d.js",
+      "_admin-logic-Bl0u50cu.js"
+    ],
+    "css": [
+      "assets/admin-rR78rBVR.js"
+    ]
+  },
+  "index-legacy.html": {
+    "file": "assets/main-legacy-B2YYLQId.js",
+    "name": "main",
+    "src": "index-legacy.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-legacy-CnvmjJHj.js",
+      "_admin-logic-legacy-BjFmdYea.js",
+      "_main-legacy-B2lRchDN.js",
+      "_chat-logic-legacy-Yu-1uwyC.js",
+      "../../node_modules/socket.io-client/build/esm/index-legacy.js",
+      "_vendor-legacy-BsY82dOW.js"
+    ],
+    "dynamicImports": [
+      "_admin-logic-legacy-BjFmdYea.js",
+      "_chat-logic-legacy-Yu-1uwyC.js"
+    ],
+    "assets": [
+      "assets/terms-CqMJYxbT.js",
+      "assets/privacy-BI0OLW5W.js"
+    ]
+  },
+  "index.html": {
+    "file": "assets/main-NfJF4beu.js",
+    "name": "main",
+    "src": "index.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-YP0FEG5d.js",
+      "_admin-logic-Bl0u50cu.js",
+      "_chat-logic-DnXj2hsa.js",
+      "../../node_modules/socket.io-client/build/esm/index.js",
+      "_vendor-cye3WufF.js"
+    ],
+    "dynamicImports": [
+      "_admin-logic-Bl0u50cu.js",
+      "_chat-logic-DnXj2hsa.js"
+    ],
+    "css": [
+      "assets/main-CAOyEzMw.js",
+      "assets/main-T0BKeT9w.js"
+    ],
+    "assets": [
+      "assets/terms-CqMJYxbT.js",
+      "assets/privacy-BI0OLW5W.js"
+    ]
+  },
+  "offline-legacy.html": {
+    "file": "assets/offline-legacy-wBjY0dQJ.js",
+    "name": "offline",
+    "src": "offline-legacy.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-legacy-CnvmjJHj.js",
+      "_main-legacy-B2lRchDN.js",
+      "_theme-init-legacy-DXsCvzJe.js"
+    ]
+  },
+  "offline.html": {
+    "file": "assets/offline-BHeu9Zn5.js",
+    "name": "offline",
+    "src": "offline.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-YP0FEG5d.js",
+      "_theme-init-DL5cV4lD.js"
+    ],
+    "css": [
+      "assets/main-T0BKeT9w.js"
+    ]
+  },
+  "privacy-legacy.html": {
+    "file": "assets/privacy-legacy-wBjY0dQJ.js",
+    "name": "privacy",
+    "src": "privacy-legacy.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-legacy-CnvmjJHj.js",
+      "_main-legacy-B2lRchDN.js",
+      "_theme-init-legacy-DXsCvzJe.js"
+    ]
+  },
+  "privacy.html": {
+    "file": "assets/privacy-BHeu9Zn5.js",
+    "name": "privacy",
+    "src": "privacy.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-YP0FEG5d.js",
+      "_theme-init-DL5cV4lD.js"
+    ],
+    "css": [
+      "assets/main-T0BKeT9w.js"
+    ]
+  },
+  "terms-legacy.html": {
+    "file": "assets/terms-legacy-wBjY0dQJ.js",
+    "name": "terms",
+    "src": "terms-legacy.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-legacy-CnvmjJHj.js",
+      "_main-legacy-B2lRchDN.js",
+      "_theme-init-legacy-DXsCvzJe.js"
+    ]
+  },
+  "terms.html": {
+    "file": "assets/terms-BHeu9Zn5.js",
+    "name": "terms",
+    "src": "terms.html",
+    "isEntry": true,
+    "imports": [
+      "_modulepreload-polyfill-YP0FEG5d.js",
+      "_theme-init-DL5cV4lD.js"
+    ],
+    "css": [
+      "assets/main-T0BKeT9w.js"
+    ]
+  }
+}
