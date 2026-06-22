@@ -1,6 +1,0 @@
-Contact: mailto:tuhink.business@gmail.com
-Expires: 2027-01-01T00:00:00.000Z
-Preferred-Languages: en
-Encryption: https://strngr.chat/pgp-key.txt
-Policy: https://strngr.chat/security-policy.html
-Acknowledgments: https://strngr.chat/hall-of-fame.html
