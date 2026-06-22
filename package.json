@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "set PORT=3000&& node server/server.js",
+    "start": "node server/server.js",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:frontend": "vite",
     "dev:backend": "set NODE_ENV=development&& set PORT=3001&& node server/server.js",
